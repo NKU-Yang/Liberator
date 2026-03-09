@@ -59,9 +59,9 @@ void bfs_opt(string path, uint sourceNode, double adviseRate,int model, int test
 
     cout<<"Start test bfs, total test time: "<<testTimes<<endl;
     uint src=graph.sourceNode;
-    long totalduration;
-    long overloaduration;
-    long staticduration;
+    long totalduration = 0;
+    long overloaduration = 0;
+    long staticduration = 0;
     double overloadSize = 0;
     for (int testIndex = 0; testIndex < testTimes; testIndex++) {
         if(src<graph.vertexArrSize)
@@ -344,10 +344,10 @@ void cc_opt(string path, double adviseRate,int model,int _testTimes) {
     totalProcess.clearRecord();
     int testTimes = _testTimes;
     EDGE_POINTER_TYPE overloadEdges = 0;
-    long totalduration;
-    double overloadduration;
+    long totalduration = 0;
+    double overloadduration = 0;
     //long overloaduration;
-    long staticduration;
+    long staticduration = 0;
     for (int testIndex = 0; testIndex < testTimes; testIndex++) {
         cout<<"==============="<<"iter "<<testIndex<<"==============="<<endl;
         graph.refreshLabelAndValue();

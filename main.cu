@@ -32,23 +32,22 @@ int main(int argc, char** argv) {
         cout << "arguments.algo " << arguments.algo << endl;
     cout<<"arguments.sourceNode "<<arguments.sourceNode<<endl;
         if(arguments.model==7)
-        newbfs_opt(arguments.input, arguments.sourceNode, arguments.adviseK, arguments.model, arguments.testTimes);
+        newbfs_opt(arguments.input, arguments.sourceNode, arguments.adviseK, arguments.model, arguments.testTimes, arguments.enablePhaseTiming, arguments.limitMemoryGB);
         else
         bfs_opt(arguments.input, arguments.sourceNode, arguments.adviseK,arguments.model,arguments.testTimes);
     } else if (arguments.algo == "cc") {
         if(arguments.model==7)
-        //newcc_opt(arguments.input, arguments.adviseK,arguments.model,arguments.testTimes);
-        New_CC_opt(arguments.input,arguments.model,arguments.testTimes);
+        New_CC_opt(arguments.input,arguments.model,arguments.testTimes, arguments.enablePhaseTiming, arguments.limitMemoryGB);
         else
         cc_opt(arguments.input, arguments.adviseK,arguments.model,arguments.testTimes);
     } else if (arguments.algo == "sssp") {
         if(arguments.model==7)
-        newsssp_opt(arguments.input, arguments.sourceNode, arguments.adviseK,arguments.model,arguments.testTimes);
+        newsssp_opt(arguments.input, arguments.sourceNode, arguments.adviseK,arguments.model,arguments.testTimes, arguments.enablePhaseTiming, arguments.limitMemoryGB);
         else
         sssp_opt(arguments.input, arguments.sourceNode, arguments.adviseK,arguments.model,arguments.testTimes);
     } else if (arguments.algo == "pr") {
         if(arguments.model==7)
-        newpr_opt(arguments.input, arguments.adviseK,arguments.model,arguments.testTimes);
+        newpr_opt(arguments.input, arguments.adviseK,arguments.model,arguments.testTimes, arguments.enablePhaseTiming, arguments.limitMemoryGB);
         else
         pr_opt(arguments.input, arguments.adviseK,arguments.model,arguments.testTimes);
     }

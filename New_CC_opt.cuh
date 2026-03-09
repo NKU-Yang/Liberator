@@ -22,7 +22,7 @@ struct StaticRegionInfo
 EDGE_POINTER_TYPE vertexArrSize, edgeArrSize;
 
 StaticRegionInfo getMaxPartionSize(int paramSize, unsigned long long edgeArrSize, EDGE_POINTER_TYPE vertexArrSize, EDGE_POINTER_TYPE* nodePointers, uint*degree,
-                       bool* isInStatic){
+                       bool* isInStatic, long limitMemoryGB = 0){
     unsigned long max_partition_size;
     unsigned long max_static_node;
     unsigned long total_gpu_size;
@@ -34,6 +34,13 @@ StaticRegionInfo getMaxPartionSize(int paramSize, unsigned long long edgeArrSize
     size_t totalMemory;
     size_t availMemory;
     cudaMemGetInfo(&availMemory, &totalMemory);
+    if(limitMemoryGB > 0){
+        size_t limitBytes = (size_t)limitMemoryGB * 1024 * 1024 * 1024;
+        if(limitBytes < availMemory){
+            availMemory = limitBytes;
+            cout << "Memory limited to " << limitMemoryGB << " GB" << endl;
+        }
+    }
     long reduceMem;
     reduceMem = 6*sizeof(uint)*(long)vertexArrSize;
     reduceMem += 4 * sizeof(bool) * (long) vertexArrSize;
@@ -52,12 +59,13 @@ StaticRegionInfo getMaxPartionSize(int paramSize, unsigned long long edgeArrSize
         printf("bigger than DIST_INFINITY\n");
         max_partition_size = UINT_MAX;
     }
-    uint temp = max_partition_size % fragmentSize;
-    max_partition_size = max_partition_size - temp;
+    // Fragment alignment skipped for model 7 (no fragment swap mechanism)
+    // uint temp = max_partition_size % fragmentSize;
+    // max_partition_size = max_partition_size - temp;
     max_static_node = 0;
     uint edgesInStatic = 0;
     for (uint i = 0; i < vertexArrSize; i++) {
-        if (nodePointers[i] < max_partition_size && (nodePointers[i] + degree[i] - 1) < max_partition_size) {
+        if (degree[i] == 0 || (nodePointers[i] < max_partition_size && (nodePointers[i] + degree[i] - 1) < max_partition_size)) {
             isInStatic[i] = true;
             if (i > max_static_node) max_static_node = i;
                 edgesInStatic += degree[i];
@@ -97,7 +105,7 @@ void cc_kernelStatic(uint activeNodesNum, uint *activeNodeListD,
     });
 }
 
-void New_CC_opt(string fileName,int model,int testTimes){
+void New_CC_opt(string fileName,int model,int testTimes, bool enablePhaseTiming, long limitMemoryGB){
     if(model!=7){
         cout<<"model not match"<<endl;
         return;
@@ -147,7 +155,7 @@ void New_CC_opt(string fileName,int model,int testTimes){
         degree[i] = nodePointers[i + 1] - nodePointers[i];
     }
     degree[vertexArrSize - 1] = edgeArrSize - nodePointers[vertexArrSize - 1];
-    StaticInfo = getMaxPartionSize(11,edgeArrSize,vertexArrSize,nodePointers,degree,isInStatic);
+    StaticInfo = getMaxPartionSize(11,edgeArrSize,vertexArrSize,nodePointers,degree,isInStatic,limitMemoryGB);
     for(uint i=0;i<vertexArrSize;i++){
         isActive[i] = 1;
         value[i] = i;
@@ -225,9 +233,9 @@ void New_CC_opt(string fileName,int model,int testTimes){
     totalProcess.print();
     totalProcess.clearRecord();
     uint64_t numthreads = 1024;
-    long totalduration;
-    long overloadduration;
-    long staticduration;
+    long totalduration = 0;
+    long overloadduration = 0;
+    long staticduration = 0;
     dim3 staticgrid(56,1,1);
     dim3 staticblock(1024,1,1);
     for (int testIndex = 0; testIndex < testTimes; testIndex++){
@@ -296,13 +304,10 @@ void New_CC_opt(string fileName,int model,int testTimes){
                 cudaStreamSynchronize(StreamStatic);
                 staticProcess.endRecord();
             }
-            else{
+            else if(enablePhaseTiming){
                 cudaDeviceSynchronize();
                 staticProcess.endRecord();
                 gpuErrorcheck(cudaPeekAtLastError());
-            }
-            if(staticProcess._isStart()){
-                staticProcess.endRecord();
             }
             activeNodesNum = thrust::reduce(activeLablingThrust, activeLablingThrust + vertexArrSize,
                                             0,

@@ -150,6 +150,9 @@ public:
     void setmodel(int _model){
         this->model = _model;
     }
+    void setMemoryLimit(long limitMB){
+        this->limitMemoryGB = limitMB;
+    }
     bool checkgraph();
     SIZE_TYPE ret_max_partition_size(){
         return max_partition_size;
@@ -159,6 +162,7 @@ private:
     SIZE_TYPE max_static_node;
     SIZE_TYPE total_gpu_size;
     uint fragmentSize = 4096;
+    long limitMemoryGB = 0;
 
     void getMaxPartitionSize();
 
@@ -332,7 +336,12 @@ void GraphMeta<EdgeType>::initGraphHost() {
     }
     else if(model!=7){
         gpuErrorcheck(cudaMallocManaged(&overloadEdgeList,sizeof(EdgeType)*overloadSize));
-        gpuErrorcheck(cudaMemAdvise(overloadEdgeList,overloadSize*sizeof(EdgeType),cudaMemAdviseSetAccessedBy,0));
+        {
+            cudaMemLocation location = {};
+            location.type = cudaMemLocationTypeDevice;
+            location.id = 0;
+            gpuErrorcheck(cudaMemAdvise(overloadEdgeList,overloadSize*sizeof(EdgeType),cudaMemAdviseSetAccessedBy,location));
+        }
         //gpuErrorcheck(cudaMemAdvise(overloadEdgeList,overloadSize*sizeof(EdgeType),cudaMemAdviseSetReadMostly,0));
     }
     
@@ -444,6 +453,13 @@ void GraphMeta<EdgeType>::getMaxPartitionSize() {
     size_t totalMemory;
     size_t availMemory;
     cudaMemGetInfo(&availMemory, &totalMemory);
+    if(limitMemoryGB > 0){
+        size_t limitBytes = (size_t)limitMemoryGB * 1024 * 1024 * 1024;
+        if(limitBytes < availMemory){
+            availMemory = limitBytes;
+            cout << "Memory limited to " << limitMemoryGB << " GB" << endl;
+        }
+    }
     unsigned long reduceMem;
     if(algType==PR){
         reduceMem = (paramSize-2) * sizeof(SIZE_TYPE) * (long) vertexArrSize;
@@ -494,12 +510,14 @@ void GraphMeta<EdgeType>::getMaxPartitionSize() {
                 printf("bigger than DIST_INFINITY\n");
                 max_partition_size = UINT_MAX;
             }
-            unsigned long temp = max_partition_size % fragmentSize;
-            max_partition_size = max_partition_size - temp;
+            if(model != 7){
+                unsigned long temp = max_partition_size % fragmentSize;
+                max_partition_size = max_partition_size - temp;
+            }
             max_static_node = 0;
             SIZE_TYPE edgesInStatic = 0;
             for (SIZE_TYPE i = 0; i < vertexArrSize; i++) {
-                if (nodePointers[i] < max_partition_size && (nodePointers[i] + degree[i] - 1) < max_partition_size) {
+                if (degree[i] == 0 || (nodePointers[i] < max_partition_size && (nodePointers[i] + degree[i] - 1) < max_partition_size)) {
                     isInStatic[i] = true;
                     if (i > max_static_node) max_static_node = i;
                     edgesInStatic += degree[i];

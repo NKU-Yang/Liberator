@@ -1,11 +1,13 @@
 #include "CalculateOpt.cuh"
 
-void newbfs_opt(string path, uint sourceNode, double adviseRate,int model, int testTimes){
+
+void newbfs_opt(string path, uint sourceNode, double adviseRate,int model, int testTimes, bool enablePhaseTiming, long limitMemoryGB){
     cout << "======NEW_bfs_opt=======" << endl;
     cout<<"sourceNode: "<<sourceNode<<endl;
     GraphMeta<uint> graph;
     graph.setAlgType(BFS);
     graph.setmodel(model);
+    graph.setMemoryLimit(limitMemoryGB);
     if(model!=7)
     {
         cout<<"model not match"<<endl;
@@ -45,9 +47,9 @@ void newbfs_opt(string path, uint sourceNode, double adviseRate,int model, int t
 
     cout<<"Start test new bfs, total test time: "<<testTimes<<endl;
     uint src=graph.sourceNode;
-    long totalduration;
-    long overloaduration;
-    long staticduration;
+    long totalduration = 0;
+    long overloaduration = 0;
+    long staticduration = 0;
     double overloadsize = 0;
     for (int testIndex = 0; testIndex < testTimes; testIndex++){
         if(src<graph.vertexArrSize)
@@ -123,7 +125,7 @@ void newbfs_opt(string path, uint sourceNode, double adviseRate,int model, int t
             gpuErrorcheck(cudaPeekAtLastError());
             
             if(overloadNodeNum > 0){
-                
+
                 overloadProcess.startRecord();
                 uint64_t numthreads = 1024;
                 uint64_t numblocks = ((overloadNodeNum * WARP_SIZE + numthreads) / numthreads);
@@ -134,18 +136,13 @@ void newbfs_opt(string path, uint sourceNode, double adviseRate,int model, int t
                                                                                             graph.isActiveD, graph.edgeArray,
                                                                                             graph.nodePointersD);
                 gpuErrorcheck(cudaPeekAtLastError());
-                //cudaDeviceSynchronize();
                 cudaStreamSynchronize(graph.streamDynamic);
-                overloadProcess.endRecord(); 
+                overloadProcess.endRecord();
                 cudaStreamSynchronize(graph.steamStatic);
                 staticProcess.endRecord();
             }
-            else{
+            else if(enablePhaseTiming){
                 cudaDeviceSynchronize();
-                staticProcess.endRecord();
-                gpuErrorcheck(cudaPeekAtLastError());
-            }
-            if(staticProcess._isStart()){
                 staticProcess.endRecord();
             }
             preProcess.startRecord();
@@ -239,9 +236,9 @@ void newcc_opt(string path, double adviseRate,int model,int testTimes){
 
     cout<<"Start test new cc, total test time: "<<testTimes<<endl;
     //uint src=graph.sourceNode;
-    long totalduration;
-    long overloaduration;
-    long staticduration;
+    long totalduration = 0;
+    long overloaduration = 0;
+    long staticduration = 0;
     double overloadsize = 0;
     for (int testIndex = 0; testIndex < testTimes; testIndex++){
         
@@ -390,11 +387,12 @@ void newcc_opt(string path, double adviseRate,int model,int testTimes){
     //cout<<"average transfer data: "<<overloadsize/testTimes<<" GB"<<endl;
 }
 
-void newsssp_opt(string path, uint sourceNode, double adviseRate,int model,int testTimes){
+void newsssp_opt(string path, uint sourceNode, double adviseRate,int model,int testTimes, bool enablePhaseTiming, long limitMemoryGB){
     cout << "========NEW_sssp_opt==========" << endl;
     GraphMeta<EdgeWithWeight> graph;
     graph.setAlgType(SSSP);
     graph.setmodel(model);
+    graph.setMemoryLimit(limitMemoryGB);
     graph.setSourceNode(sourceNode);
     graph.readDataFromFile(path, false);
     graph.setPrestoreRatio(adviseRate, 13);
@@ -492,11 +490,8 @@ void newsssp_opt(string path, uint sourceNode, double adviseRate,int model,int t
                 overloadProcess.endRecord();
                 staticProcess.endRecord();
             }
-            else{
+            else if(enablePhaseTiming){
                 cudaDeviceSynchronize();
-                staticProcess.endRecord();
-            }
-            if(staticProcess._isStart()){
                 staticProcess.endRecord();
             }
 
@@ -532,11 +527,12 @@ void newsssp_opt(string path, uint sourceNode, double adviseRate,int model,int t
 
 }
 
-void newpr_opt(string path, double adviseRate,int model,int testTimes){
+void newpr_opt(string path, double adviseRate,int model,int testTimes, bool enablePhaseTiming, long limitMemoryGB){
     cout<<"========NEW_pr_opt==========="<<endl;
     GraphMeta<unsigned long long> graph;
     graph.setAlgType(PR);
     graph.setmodel(model);
+    graph.setMemoryLimit(limitMemoryGB);
     graph.readDataFromFile(path, true);
     graph.setPrestoreRatio(adviseRate, 16);
     graph.initGraphHost();
@@ -548,9 +544,9 @@ void newpr_opt(string path, double adviseRate,int model,int testTimes){
     TimeRecord<chrono::milliseconds> preProcess("preProcess");
     TimeRecord<chrono::milliseconds> staticProcess("staticProcess");
     TimeRecord<chrono::milliseconds> overloadProcess("overloadProcess");
-    long Total;
-    long Static;
-    long Overload;
+    long Total = 0;
+    long Static = 0;
+    long Overload = 0;
     totalProcess.startRecord();
 
     graph.refreshLabelAndValue();
@@ -629,7 +625,7 @@ void newpr_opt(string path, double adviseRate,int model,int testTimes){
                     uint numwarps = blockDim.x*blockDim.y*numthreads / WARP_SIZE;
                     NEW_prSumKernel_dynamic_test<<<blockDim,numthreads,0,graph.streamDynamic>>>(
                         overloadNodeNum, graph.overloadNodeListD, graph.nodePointersD,
-                        numwarps, graph.edgeArray, 
+                        numwarps, graph.edgeArray,
                         graph.degreeD, graph.outDegreeD,
                         graph.valuePrD, graph.sumD);
                 cudaStreamSynchronize(graph.streamDynamic);
@@ -637,15 +633,13 @@ void newpr_opt(string path, double adviseRate,int model,int testTimes){
                 cudaStreamSynchronize(graph.steamStatic);
                 staticProcess.endRecord();
             }
-            if(staticProcess._isStart()){
+            else if(enablePhaseTiming){
+                cudaDeviceSynchronize();
                 staticProcess.endRecord();
             }
             preProcess.startRecord();
             //totalDiff = thrust::reduce(thrust::device, graph.DiffDThrust, graph.DiffDThrust+graph.vertexArrSize);
             prKernel_Opt<<<graph.grid, graph.block>>>(graph.vertexArrSize, graph.valuePrD, graph.sumD, graph.isActiveD);
-            // double oldsum = thrust::reduce(graph.sumDThrust, graph.sumDThrust + graph.vertexArrSize,0, thrust::plus<double>());
-            // double tempAdd = (1.0-oldsum)/graph.vertexArrSize;
-            //prKernel_Opt<<<graph.grid, graph.block>>>(graph.vertexArrSize, graph.valuePrD, graph.sumD, graph.isActiveD);
             cudaDeviceSynchronize();
             activeNodesNum = thrust::reduce(graph.activeLablingThrust, graph.activeLablingThrust + graph.vertexArrSize,
                                             0,

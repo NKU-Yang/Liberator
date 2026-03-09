@@ -36,6 +36,12 @@ bool ArgumentParser::Parse() {
             else if(strcmp(argv[i], "--testTime")==0){
                 testTimes = atoi(argv[i+1]);
             }
+            else if(strcmp(argv[i], "--timing")==0){
+                enablePhaseTiming = atoi(argv[i+1]) != 0;
+            }
+            else if(strcmp(argv[i], "--memory")==0){
+                limitMemoryGB = atol(argv[i+1]);
+            }
         }
 
         if (hasInput)

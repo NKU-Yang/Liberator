@@ -20,6 +20,8 @@ public:
     string algo;
     int model;
     int testTimes;
+    bool enablePhaseTiming = false;
+    long limitMemoryGB = 0; // 0 means no limit, >0 limits GPU memory in GB
     ArgumentParser(int argc, char **argv, bool canHaveSource);
 
     bool Parse();

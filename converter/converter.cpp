@@ -721,18 +721,28 @@ void convertToBEL(string input){
 }
 int main(int argc, char** argv)
 {
-	if(argc!= 2)
+	if(argc < 3)
 	{
-		cout << "\nThere was an error parsing command line arguments\n";
+		cout << "Usage: converter <mode> <input_file>\n";
+		cout << "Modes:\n";
+		cout << "  txt2byte  - Convert text edge list to binary (.toB)\n";
+		cout << "  byte2bcsr - Convert binary to BCSR (.bcsr)\n";
+		cout << "  byte2bcsc - Convert binary to BCSC (.bcsc)\n";
+		cout << "  byte2bwcsr- Convert binary to weighted BCSR (.bwcsr)\n";
+		cout << "  byte2llbcsr - Convert binary to large BCSR (.llbcsr)\n";
+		cout << "  byte2llbcsc - Convert binary to large BCSC (.llbcsc)\n";
+		cout << "  toBEL    - Convert BWCSR to BEL format\n";
 		exit(0);
 	}
 
-	string input = string(argv[1]);
-	//convertTxtToByte(input);
-	//convertByteToBCSR(input);
-	//convertByteToBCSC(input);
-	//convertByteToBWCSR(input); 
-	//convertByteTollBCSC(input);
-	//convertByteTollBCSR(input);
-	convertToBEL(input);
+	string mode = string(argv[1]);
+	string input = string(argv[2]);
+	if (mode == "txt2byte") convertTxtToByte(input);
+	else if (mode == "byte2bcsr") convertByteToBCSR(input);
+	else if (mode == "byte2bcsc") convertByteToBCSC(input);
+	else if (mode == "byte2bwcsr") convertByteToBWCSR(input);
+	else if (mode == "byte2llbcsr") convertByteTollBCSR(input);
+	else if (mode == "byte2llbcsc") convertByteTollBCSC(input);
+	else if (mode == "toBEL") convertToBEL(input);
+	else cout << "Unknown mode: " << mode << endl;
 }
